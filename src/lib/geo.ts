@@ -107,3 +107,42 @@ export function randomLatLng(): [number, number] {
 export function tunnelExit(lat: number, lon: number): [number, number] {
   return antipode(lat, lon);
 }
+
+/** Approximate sunrise/sunset using solar equations */
+export function sunTimes(
+  lat: number,
+  lon: number,
+  date: Date = new Date()
+): { sunrise: string; sunset: string; dayLength: string } | null {
+  const rad = Math.PI / 180;
+  const day = Math.floor(
+    (Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()) -
+      Date.UTC(date.getFullYear(), 0, 0)) /
+      86400000
+  );
+  const decl = 0.4093 * Math.sin(((2 * Math.PI) / 365) * (day - 81));
+  const latR = lat * rad;
+  const cosH =
+    (Math.sin(-0.0145) - Math.sin(latR) * Math.sin(decl)) /
+    (Math.cos(latR) * Math.cos(decl));
+  if (cosH > 1 || cosH < -1) return null;
+  const H = Math.acos(cosH);
+  const noon = 12 - lon / 15;
+  const sunriseH = noon - (H * 12) / Math.PI;
+  const sunsetH = noon + (H * 12) / Math.PI;
+  const fmt = (h: number) => {
+    let hr = Math.floor(h);
+    let min = Math.round((h - hr) * 60);
+    if (min === 60) { hr += 1; min = 0; }
+    hr = ((hr % 24) + 24) % 24;
+    return `${String(hr).padStart(2, "0")}:${String(min).padStart(2, "0")}`;
+  };
+  const dayLen = sunsetH - sunriseH;
+  const dlH = Math.floor(dayLen);
+  const dlM = Math.round((dayLen - dlH) * 60);
+  return {
+    sunrise: fmt(sunriseH),
+    sunset: fmt(sunsetH),
+    dayLength: `${dlH}h ${dlM}m`,
+  };
+}
